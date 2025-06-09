@@ -221,193 +221,226 @@
     </div>
   </div>
 
-  <script>
-    let timer,
-      totalSeconds = 0,
-      isRunning = false;
-    let currentPhase = 'focus',
-      focusCount = 0,
-      shortBreakCount = 0,
-      longBreakCount = 0,
-      pomoLimit = 4;
+<script>
+  let timer,
+    totalSeconds = 0,
+    isRunning = false;
+  let currentPhase = 'focus',
+    focusCount = 0,
+    shortBreakCount = 0,
+    longBreakCount = 0,
+    pomoLimit = 4;
 
-    let settings = {
-      focus: { min: 25, sec: 0 },
-      shortBreak: { min: 5, sec: 0 },
-      longBreak: { min: 15, sec: 0 }
+  let settings = {
+    focus: { min: 25, sec: 0 },
+    shortBreak: { min: 5, sec: 0 },
+    longBreak: { min: 15, sec: 0 }
+  };
+
+  let startBtn = document.getElementById('startBtn');
+
+  let shouldSkipShortBreak = false;
+
+  function updateDisplay() {
+    const minutes = Math.floor(totalSeconds / 60)
+      .toString()
+      .padStart(2, '0');
+    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+    document.getElementById('timerDisplay').textContent = `${minutes}:${seconds}`;
+  }
+
+  function toggleSettings() {
+    const content = document.getElementById('settingsContent');
+    content.style.display = content.style.display === 'block' ? 'none' : 'block';
+  }
+
+  function applySettings() {
+    settings.focus.min = parseInt(document.getElementById('focusMin').value) || 0;
+    settings.focus.sec = parseInt(document.getElementById('focusSec').value) || 0;
+    settings.shortBreak.min = parseInt(document.getElementById('shortBreakMin').value) || 0;
+    settings.shortBreak.sec = parseInt(document.getElementById('shortBreakSec').value) || 0;
+    settings.longBreak.min = parseInt(document.getElementById('longBreakMin').value) || 0;
+    settings.longBreak.sec = parseInt(document.getElementById('longBreakSec').value) || 0;
+    pomoLimit = parseInt(document.getElementById('pomosUntilLong').value) || 4;
+    setPhase('focus');
+    updateSessionCounter();
+    saveSettingsToCookies();
+  }
+
+  function saveSettingsToCookies() {
+    const cookieData = {
+      focus: settings.focus,
+      shortBreak: settings.shortBreak,
+      longBreak: settings.longBreak,
+      pomoLimit: pomoLimit
     };
+    document.cookie = `pomodoroSettings=${JSON.stringify(cookieData)}; path=/; max-age=31536000`;
+  }
 
-    let startBtn = document.getElementById('startBtn');
+  function loadSettingsFromCookies() {
+    const cookies = document.cookie.split('; ');
+    const cookie = cookies.find(row => row.startsWith('pomodoroSettings='));
+    if (!cookie) return;
+    try {
+      const data = JSON.parse(cookie.split('=')[1]);
+      settings.focus = data.focus || settings.focus;
+      settings.shortBreak = data.shortBreak || settings.shortBreak;
+      settings.longBreak = data.longBreak || settings.longBreak;
+      pomoLimit = data.pomoLimit || pomoLimit;
 
-    // Flag to skip short break immediately before long break
-    let shouldSkipShortBreak = false;
-
-    function updateDisplay() {
-      const minutes = Math.floor(totalSeconds / 60)
-        .toString()
-        .padStart(2, '0');
-      const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-      document.getElementById('timerDisplay').textContent = `${minutes}:${seconds}`;
+      document.getElementById('focusMin').value = settings.focus.min;
+      document.getElementById('focusSec').value = settings.focus.sec;
+      document.getElementById('shortBreakMin').value = settings.shortBreak.min;
+      document.getElementById('shortBreakSec').value = settings.shortBreak.sec;
+      document.getElementById('longBreakMin').value = settings.longBreak.min;
+      document.getElementById('longBreakSec').value = settings.longBreak.sec;
+      document.getElementById('pomosUntilLong').value = pomoLimit;
+    } catch (e) {
+      console.error('Failed to load cookie settings', e);
     }
+  }
 
-    function toggleSettings() {
-      const content = document.getElementById('settingsContent');
-      content.style.display = content.style.display === 'block' ? 'none' : 'block';
+  function setPhase(phase) {
+    currentPhase = phase;
+    document.getElementById('phaseLabel').textContent =
+      phase === 'focus'
+        ? 'Focus'
+        : phase === 'shortBreak'
+        ? 'Short Break'
+        : 'Long Break';
+
+    const time = settings[phase];
+    totalSeconds = time.min * 60 + time.sec;
+    updateDisplay();
+    updateTimerColor();
+  }
+
+  function updateTimerColor() {
+    const timerBox = document.getElementById('timerDisplay');
+    if (currentPhase === 'focus') {
+      timerBox.style.backgroundColor = '#ffffff';
+      timerBox.style.color = '#333';
+    } else {
+      timerBox.style.backgroundColor = '#FA660F';
+      timerBox.style.color = 'white';
     }
+  }
 
-    function applySettings() {
-      settings.focus.min = parseInt(document.getElementById('focusMin').value) || 0;
-      settings.focus.sec = parseInt(document.getElementById('focusSec').value) || 0;
-      settings.shortBreak.min = parseInt(document.getElementById('shortBreakMin').value) || 0;
-      settings.shortBreak.sec = parseInt(document.getElementById('shortBreakSec').value) || 0;
-      settings.longBreak.min = parseInt(document.getElementById('longBreakMin').value) || 0;
-      settings.longBreak.sec = parseInt(document.getElementById('longBreakSec').value) || 0;
-      pomoLimit = parseInt(document.getElementById('pomosUntilLong').value) || 4;
+  function nextPhase() {
+    if (currentPhase === 'focus') {
+      focusCount++;
+      if (focusCount % pomoLimit === 0) {
+        setPhase('longBreak');
+        shouldSkipShortBreak = true;
+      } else {
+        setPhase('shortBreak');
+      }
+    } else if (currentPhase === 'shortBreak') {
+      shortBreakCount++;
       setPhase('focus');
-      updateSessionCounter();
-    }
-
-    function setPhase(phase) {
-      currentPhase = phase;
-      document.getElementById('phaseLabel').textContent =
-        phase === 'focus'
-          ? 'Focus'
-          : phase === 'shortBreak'
-          ? 'Short Break'
-          : 'Long Break';
-
-      const time = settings[phase];
-      totalSeconds = time.min * 60 + time.sec;
-      updateDisplay();
-      updateTimerColor();
-    }
-
-    function updateTimerColor() {
-      const timerBox = document.getElementById('timerDisplay');
-      if (currentPhase === 'focus') {
-        timerBox.style.backgroundColor = '#ffffff';
-        timerBox.style.color = '#333';
-      } else {
-        timerBox.style.backgroundColor = '#FA660F';
-        timerBox.style.color = 'white';
-      }
-    }
-
-    function nextPhase() {
-      if (currentPhase === 'focus') {
-        focusCount++;
-        if (focusCount % pomoLimit === 0) {
-          setPhase('longBreak');
-          shouldSkipShortBreak = true;
-        } else {
-          setPhase('shortBreak');
-        }
-      } else if (currentPhase === 'shortBreak') {
-        shortBreakCount++;
-        setPhase('focus');
-      } else if (currentPhase === 'longBreak') {
-        longBreakCount++;
-        clearInterval(timer);
-        isRunning = false;
-        updateStartPauseButton();
-        showPopup();
-        return;
-      }
-      updateSessionCounter();
-      if (shouldSkipShortBreak && currentPhase === 'shortBreak') {
-        shouldSkipShortBreak = false;
-        nextPhase();
-      } else {
-        startTimer();
-      }
-    }
-
-    function updateSessionCounter() {
-      document.getElementById(
-        'sessionCounter'
-      ).textContent = `Focus: ${focusCount} | Short Breaks: ${shortBreakCount} | Long Breaks: ${longBreakCount}`;
-    }
-
-    function updateStartPauseButton() {
-      if (isRunning) {
-        startBtn.textContent = 'Pause';
-        startBtn.style.border = '1px solid #FA660F';
-        startBtn.style.color = '#FA660F';
-        startBtn.style.backgroundColor = 'transparent';
-      } else {
-        startBtn.textContent = 'Start';
-        startBtn.style.border = '1px solid #FA660F';
-        startBtn.style.color = '#ffffff';
-        startBtn.style.backgroundColor = '#FA660F';
-      }
-    }
-
-    function startTimer() {
-      if (isRunning) return;
-      isRunning = true;
-      updateStartPauseButton();
-
-      timer = setInterval(() => {
-        if (totalSeconds > 0) {
-          totalSeconds--;
-          updateDisplay();
-        } else {
-          clearInterval(timer);
-          isRunning = false;
-          updateStartPauseButton();
-          nextPhase();
-        }
-      }, 1000);
-    }
-
-    function pauseTimer() {
-      if (!isRunning) return;
+    } else if (currentPhase === 'longBreak') {
+      longBreakCount++;
       clearInterval(timer);
       isRunning = false;
       updateStartPauseButton();
+      showPopup();
+      return;
     }
-
-    function resetTimer() {
-      pauseTimer();
+    updateSessionCounter();
+    if (shouldSkipShortBreak && currentPhase === 'shortBreak') {
       shouldSkipShortBreak = false;
-      setPhase('focus');
-      updateSessionCounter();
-      closePopup();
-    }
-
-    function toggleStartPause() {
-      if (isRunning) {
-        pauseTimer();
-      } else {
-        startTimer();
-      }
-    }
-
-    function showPopup() {
-      document.getElementById('popup').style.display = 'flex';
-    }
-
-    function closePopup() {
-      document.getElementById('popup').style.display = 'none';
-      pauseTimer();
-      setPhase('focus');
-    }
-
-    function restartSession() {
-      resetTimer();
-      closePopup();
+      nextPhase();
+    } else {
       startTimer();
     }
+  }
 
-    window.onload = () => {
-      setPhase('focus');
-      updateSessionCounter();
-      updateStartPauseButton();
-    };
+  function updateSessionCounter() {
+    document.getElementById('sessionCounter').textContent =
+      `Focus: ${focusCount} | Short Breaks: ${shortBreakCount} | Long Breaks: ${longBreakCount}`;
+  }
 
-    document.getElementById('startBtn').addEventListener('click', toggleStartPause);
-    document.getElementById('resetBtn').addEventListener('click', resetTimer);
+  function updateStartPauseButton() {
+    if (isRunning) {
+      startBtn.textContent = 'Pause';
+      startBtn.style.border = '1px solid #FA660F';
+      startBtn.style.color = '#FA660F';
+      startBtn.style.backgroundColor = 'transparent';
+    } else {
+      startBtn.textContent = 'Start';
+      startBtn.style.border = '1px solid #FA660F';
+      startBtn.style.color = '#ffffff';
+      startBtn.style.backgroundColor = '#FA660F';
+    }
+  }
+
+  function startTimer() {
+    if (isRunning) return;
+    isRunning = true;
+    updateStartPauseButton();
+
+    timer = setInterval(() => {
+      if (totalSeconds > 0) {
+        totalSeconds--;
+        updateDisplay();
+      } else {
+        clearInterval(timer);
+        isRunning = false;
+        updateStartPauseButton();
+        nextPhase();
+      }
+    }, 1000);
+  }
+
+  function pauseTimer() {
+    if (!isRunning) return;
+    clearInterval(timer);
+    isRunning = false;
+    updateStartPauseButton();
+  }
+
+  function resetTimer() {
+    pauseTimer();
+    shouldSkipShortBreak = false;
+    setPhase('focus');
+    updateSessionCounter();
+    closePopup();
+  }
+
+  function toggleStartPause() {
+    if (isRunning) {
+      pauseTimer();
+    } else {
+      startTimer();
+    }
+  }
+
+  function showPopup() {
+    document.getElementById('popup').style.display = 'flex';
+  }
+
+  function closePopup() {
+    document.getElementById('popup').style.display = 'none';
+    pauseTimer();
+    setPhase('focus');
+  }
+
+  function restartSession() {
+    resetTimer();
+    closePopup();
+    startTimer();
+  }
+
+  window.onload = () => {
+    loadSettingsFromCookies();
+    applySettings();
+    updateStartPauseButton();
+  };
+
+  document.getElementById('startBtn').addEventListener('click', toggleStartPause);
+  document.getElementById('resetBtn').addEventListener('click', resetTimer);
 </script>
+
 
 </body>
 </html>
