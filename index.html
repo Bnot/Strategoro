@@ -237,6 +237,8 @@
       longBreak: { min: 15, sec: 0 }
     };
 
+    let startBtn = document.getElementById('startBtn');
+
     // Flag to skip short break immediately before long break
     let shouldSkipShortBreak = false;
 
@@ -296,7 +298,7 @@
         focusCount++;
         if (focusCount % pomoLimit === 0) {
           setPhase('longBreak');
-          shouldSkipShortBreak = true; // Set flag to skip next short break
+          shouldSkipShortBreak = true;
         } else {
           setPhase('shortBreak');
         }
@@ -307,16 +309,14 @@
         longBreakCount++;
         clearInterval(timer);
         isRunning = false;
-        document.getElementById('startBtn').textContent = 'Start';
+        updateStartPauseButton();
         showPopup();
         return;
       }
       updateSessionCounter();
-
-      // If flagged to skip short break, do so now by advancing phase immediately
       if (shouldSkipShortBreak && currentPhase === 'shortBreak') {
         shouldSkipShortBreak = false;
-        nextPhase(); // Skip short break phase and move on to focus
+        nextPhase();
       } else {
         startTimer();
       }
@@ -328,10 +328,24 @@
       ).textContent = `Focus: ${focusCount} | Short Breaks: ${shortBreakCount} | Long Breaks: ${longBreakCount}`;
     }
 
+    function updateStartPauseButton() {
+      if (isRunning) {
+        startBtn.textContent = 'Pause';
+        startBtn.style.border = '2px solid #FA660F';
+        startBtn.style.color = '#FA660F';
+        startBtn.style.backgroundColor = 'transparent';
+      } else {
+        startBtn.textContent = 'Start';
+        startBtn.style.border = '1px solid #FA660F';
+        startBtn.style.color = '#ffffff';
+        startBtn.style.backgroundColor = '#FA660F';
+      }
+    }
+
     function startTimer() {
       if (isRunning) return;
       isRunning = true;
-      document.getElementById('startBtn').textContent = 'Pause';
+      updateStartPauseButton();
 
       timer = setInterval(() => {
         if (totalSeconds > 0) {
@@ -340,7 +354,7 @@
         } else {
           clearInterval(timer);
           isRunning = false;
-          document.getElementById('startBtn').textContent = 'Start';
+          updateStartPauseButton();
           nextPhase();
         }
       }, 1000);
@@ -350,16 +364,16 @@
       if (!isRunning) return;
       clearInterval(timer);
       isRunning = false;
-      document.getElementById('startBtn').textContent = 'Start';
+      updateStartPauseButton();
     }
 
-function resetTimer() {
-  pauseTimer();
-  shouldSkipShortBreak = false;
-  setPhase('focus');
-  updateSessionCounter();
-  closePopup();
-}
+    function resetTimer() {
+      pauseTimer();
+      shouldSkipShortBreak = false;
+      setPhase('focus');
+      updateSessionCounter();
+      closePopup();
+    }
 
     function toggleStartPause() {
       if (isRunning) {
@@ -373,26 +387,27 @@ function resetTimer() {
       document.getElementById('popup').style.display = 'flex';
     }
 
-function closePopup() {
-  document.getElementById('popup').style.display = 'none';
-  pauseTimer();
-  setPhase('focus'); // reset timer display but keep stats
-}
+    function closePopup() {
+      document.getElementById('popup').style.display = 'none';
+      pauseTimer();
+      setPhase('focus');
+    }
 
-function restartSession() {
-  resetTimer();
-  closePopup();
-  startTimer();
-}
+    function restartSession() {
+      resetTimer();
+      closePopup();
+      startTimer();
+    }
 
-    // Initialize timer display and counters on load
     window.onload = () => {
       setPhase('focus');
       updateSessionCounter();
+      updateStartPauseButton();
     };
 
     document.getElementById('startBtn').addEventListener('click', toggleStartPause);
     document.getElementById('resetBtn').addEventListener('click', resetTimer);
-  </script>
+</script>
+
 </body>
 </html>
