@@ -333,16 +333,16 @@
       document.getElementById('startBtn').textContent = 'Start';
     }
 
-    function resetTimer() {
-      pauseTimer();
-      focusCount = 0;
-      shortBreakCount = 0;
-      longBreakCount = 0;
-      shouldSkipShortBreak = false;
-      setPhase('focus');
-      updateSessionCounter();
-      closePopup();
-    }
+function resetTimer() {
+  pauseTimer();
+  focusCount = 0;
+  shortBreakCount = 0;
+  longBreakCount = 0;
+  shouldSkipShortBreak = false;
+  setPhase('focus');
+  updateSessionCounter();
+  closePopup();
+}
 
     function toggleStartPause() {
       if (isRunning) {
@@ -356,15 +356,17 @@
       document.getElementById('popup').style.display = 'flex';
     }
 
-    function closePopup() {
-      document.getElementById('popup').style.display = 'none';
-    }
+function closePopup() {
+  document.getElementById('popup').style.display = 'none';
+  pauseTimer();
+  setPhase('focus'); // reset timer display but keep stats
+}
 
-    function restartSession() {
-      resetTimer();
-      closePopup();
-      startTimer();
-    }
+function restartSession() {
+  resetTimer();
+  closePopup();
+  startTimer();
+}
 
     // Initialize timer display and counters on load
     window.onload = () => {
