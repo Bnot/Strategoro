@@ -4,8 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Strategoro</title>
+  <!-- styles omitted for brevity -->
   <style>
-    body {
+ body {
       margin: 0;
       font-family: sans-serif;
       background-color: #f7f7f7;
@@ -172,6 +173,7 @@
   </style>
 </head>
 <body>
+<body>
   <img id="logo" src="https://images.contentstack.io/v3/assets/bltb564490bc5201f31/bltfca3027a7e89bc13/6787e4768c6f504919511797/strategy_logo_black.svg" alt="Strategy Logo" />
 
   <div class="section">
@@ -223,8 +225,8 @@
 
 <script>
   let timer,
-    totalSeconds = 0,
-    isRunning = false;
+    isRunning = false,
+    endTimestamp = null;
   let currentPhase = 'focus',
     focusCount = 0,
     shortBreakCount = 0,
@@ -238,14 +240,16 @@
   };
 
   let startBtn = document.getElementById('startBtn');
-
   let shouldSkipShortBreak = false;
 
+  function getRemainingSeconds() {
+    return Math.max(0, Math.floor((endTimestamp - Date.now()) / 1000));
+  }
+
   function updateDisplay() {
-    const minutes = Math.floor(totalSeconds / 60)
-      .toString()
-      .padStart(2, '0');
-    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+    const remaining = getRemainingSeconds();
+    const minutes = Math.floor(remaining / 60).toString().padStart(2, '0');
+    const seconds = (remaining % 60).toString().padStart(2, '0');
     document.getElementById('timerDisplay').textContent = `${minutes}:${seconds}`;
   }
 
@@ -310,7 +314,8 @@
         : 'Long Break';
 
     const time = settings[phase];
-    totalSeconds = time.min * 60 + time.sec;
+    const duration = (time.min * 60 + time.sec) * 1000;
+    endTimestamp = Date.now() + duration;
     updateDisplay();
     updateTimerColor();
   }
@@ -380,8 +385,8 @@
     updateStartPauseButton();
 
     timer = setInterval(() => {
-      if (totalSeconds > 0) {
-        totalSeconds--;
+      const remaining = getRemainingSeconds();
+      if (remaining > 0) {
         updateDisplay();
       } else {
         clearInterval(timer);
@@ -397,6 +402,7 @@
     clearInterval(timer);
     isRunning = false;
     updateStartPauseButton();
+    endTimestamp = Date.now() + getRemainingSeconds() * 1000;
   }
 
   function resetTimer() {
@@ -440,7 +446,6 @@
   document.getElementById('startBtn').addEventListener('click', toggleStartPause);
   document.getElementById('resetBtn').addEventListener('click', resetTimer);
 </script>
-
 
 </body>
 </html>
