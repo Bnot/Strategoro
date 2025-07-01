@@ -227,84 +227,32 @@
   <audio id="endSound" src="sounds/End.mp3"></audio>
 
 <script>
-  let timer,
-    isRunning = false,
-    endTimestamp = null;
-  let currentPhase = 'focus',
-    focusCount = 0,
-    shortBreakCount = 0,
-    longBreakCount = 0,
-    pomoLimit = 4;
-
-  let settings = {
+  let timer, isRunning = false, endTimestamp = null;
+  let currentPhase = 'idle', focusCount = 0, shortBreakCount = 0, longBreakCount = 0, pomoLimit = 4;
+  const settings = {
     focus: { min: 25, sec: 0 },
     shortBreak: { min: 5, sec: 0 },
     longBreak: { min: 15, sec: 0 }
   };
-
-  let startBtn = document.getElementById('startBtn');
-  let shouldSkipShortBreak = false;
-  let lastPhase = null;
+  const startBtn = document.getElementById('startBtn');
+  let shouldSkipShortBreak = false, lastPhase = null;
 
   function getRemainingSeconds() {
     return Math.max(0, Math.floor((endTimestamp - Date.now()) / 1000));
   }
 
   function updateDisplay() {
-    const remaining = getRemainingSeconds();
-    const minutes = Math.floor(remaining / 60).toString().padStart(2, '0');
-    const seconds = (remaining % 60).toString().padStart(2, '0');
-    document.getElementById('timerDisplay').textContent = `${minutes}:${seconds}`;
+    const rem = getRemainingSeconds();
+    document.getElementById('timerDisplay').textContent =
+      `${String(Math.floor(rem / 60)).padStart(2,'0')}:${String(rem % 60).padStart(2,'0')}`;
   }
 
-  function toggleSettings() {
-    const content = document.getElementById('settingsContent');
-    content.style.display = content.style.display === 'block' ? 'none' : 'block';
-  }
-
-  function applySettings() {
-    settings.focus.min = parseInt(document.getElementById('focusMin').value) || 0;
-    settings.focus.sec = parseInt(document.getElementById('focusSec').value) || 0;
-    settings.shortBreak.min = parseInt(document.getElementById('shortBreakMin').value) || 0;
-    settings.shortBreak.sec = parseInt(document.getElementById('shortBreakSec').value) || 0;
-    settings.longBreak.min = parseInt(document.getElementById('longBreakMin').value) || 0;
-    settings.longBreak.sec = parseInt(document.getElementById('longBreakSec').value) || 0;
-    pomoLimit = parseInt(document.getElementById('pomosUntilLong').value) || 4;
-    setPhase('focus');
-    updateSessionCounter();
-    saveSettingsToCookies();
-  }
-
-  function saveSettingsToCookies() {
-    const cookieData = {
-      focus: settings.focus,
-      shortBreak: settings.shortBreak,
-      longBreak: settings.longBreak,
-      pomoLimit: pomoLimit
-    };
-    document.cookie = `pomodoroSettings=${JSON.stringify(cookieData)}; path=/; max-age=31536000`;
-  }
-
-  function loadSettingsFromCookies() {
-    const cookies = document.cookie.split('; ');
-    const cookie = cookies.find(row => row.startsWith('pomodoroSettings='));
-    if (!cookie) return;
-    try {
-      const data = JSON.parse(cookie.split('=')[1]);
-      settings.focus = data.focus || settings.focus;
-      settings.shortBreak = data.shortBreak || settings.shortBreak;
-      settings.longBreak = data.longBreak || settings.longBreak;
-      pomoLimit = data.pomoLimit || pomoLimit;
-
-      document.getElementById('focusMin').value = settings.focus.min;
-      document.getElementById('focusSec').value = settings.focus.sec;
-      document.getElementById('shortBreakMin').value = settings.shortBreak.min;
-      document.getElementById('shortBreakSec').value = settings.shortBreak.sec;
-      document.getElementById('longBreakMin').value = settings.longBreak.min;
-      document.getElementById('longBreakSec').value = settings.longBreak.sec;
-      document.getElementById('pomosUntilLong').value = pomoLimit;
-    } catch (e) {
-      console.error('Failed to load cookie settings', e);
+  function updateTimerColor() {
+    const box = document.getElementById('timerDisplay');
+    if (currentPhase === 'focus' || currentPhase === 'idle') {
+      box.style.backgroundColor = '#ffffff'; box.style.color = '#333';
+    } else {
+      box.style.backgroundColor = '#FA660F'; box.style.color = 'white';
     }
   }
 
@@ -312,76 +260,50 @@
     const sounds = {
       focus: document.getElementById('focusSound'),
       shortBreak: document.getElementById('BreakSound'),
-      longBreak: document.getElementById('BreakSound') // reuse short break sound
+      longBreak: document.getElementById('BreakSound')
     };
-    const sound = sounds[phase];
-    if (sound) sound.play().catch(err => console.error('Sound error:', err));
+    const audio = sounds[phase];
+    if (audio) audio.play().catch(console.warn);
   }
 
   function setPhase(phase) {
     currentPhase = phase;
-    document.getElementById('phaseLabel').textContent =
-      phase === 'focus'
-        ? 'Focus'
-        : phase === 'shortBreak'
-        ? 'Short Break'
-        : 'Long Break';
+    document.getElementById('phaseLabel').textContent = (phase === 'idle' || phase === 'focus')
+      ? 'Focus'
+      : phase === 'shortBreak' ? 'Short Break' : 'Long Break';
 
-    const time = settings[phase];
-    const duration = (time.min * 60 + time.sec) * 1000;
-    endTimestamp = Date.now() + duration;
+    const t = settings[phase === 'idle' ? 'focus' : phase];
+    endTimestamp = Date.now() + (t.min * 60 + t.sec) * 1000;
+
     updateDisplay();
     updateTimerColor();
-    if (lastPhase !== phase) {
-      playSoundForPhase(phase);
-      lastPhase = phase;
-    }
+
+    if (phase !== 'idle' && lastPhase !== phase) playSoundForPhase(phase);
+    lastPhase = phase;
   }
 
-  function updateTimerColor() {
-    const timerBox = document.getElementById('timerDisplay');
-    if (currentPhase === 'focus') {
-      timerBox.style.backgroundColor = '#ffffff';
-      timerBox.style.color = '#333';
-    } else {
-      timerBox.style.backgroundColor = '#FA660F';
-      timerBox.style.color = 'white';
-    }
-  }
+  function startTimer() {
+    if (isRunning) return;
+    if (currentPhase === 'idle') setPhase('focus');
+    isRunning = true;
+    updateStartPauseButton();
 
-  function nextPhase() {
-    if (currentPhase === 'focus') {
-      focusCount++;
-      if (focusCount % pomoLimit === 0) {
-        setPhase('longBreak');
-        shouldSkipShortBreak = true;
+    timer = setInterval(() => {
+      if (getRemainingSeconds() > 0) {
+        updateDisplay();
       } else {
-        setPhase('shortBreak');
+        clearInterval(timer); isRunning = false;
+        updateStartPauseButton();
+        nextPhase();
       }
-    } else if (currentPhase === 'shortBreak') {
-      shortBreakCount++;
-      setPhase('focus');
-    } else if (currentPhase === 'longBreak') {
-      longBreakCount++;
-      clearInterval(timer);
-      isRunning = false;
-      updateStartPauseButton();
-      document.getElementById('endSound').play().catch(err => console.error('Sound error:', err));
-      showPopup();
-      return;
-    }
-    updateSessionCounter();
-    if (shouldSkipShortBreak && currentPhase === 'shortBreak') {
-      shouldSkipShortBreak = false;
-      nextPhase();
-    } else {
-      startTimer();
-    }
+    }, 1000);
   }
 
-  function updateSessionCounter() {
-    document.getElementById('sessionCounter').textContent =
-      `Focus: ${focusCount} | Short Breaks: ${shortBreakCount} | Long Breaks: ${longBreakCount}`;
+  function pauseTimer() {
+    if (!isRunning) return;
+    clearInterval(timer); isRunning = false;
+    updateStartPauseButton();
+    endTimestamp = Date.now() + getRemainingSeconds() * 1000;
   }
 
   function updateStartPauseButton() {
@@ -398,81 +320,74 @@
     }
   }
 
-  function startTimer() {
-    if (isRunning) return;
-    isRunning = true;
-    updateStartPauseButton();
-
-    timer = setInterval(() => {
-      const remaining = getRemainingSeconds();
-      if (remaining > 0) {
-        updateDisplay();
+  function nextPhase() {
+    if (currentPhase === 'focus') {
+      focusCount++;
+      if (focusCount % pomoLimit === 0) {
+        setPhase('longBreak'); shouldSkipShortBreak = true;
       } else {
-        clearInterval(timer);
-        isRunning = false;
-        updateStartPauseButton();
-        nextPhase();
+        setPhase('shortBreak');
       }
-    }, 1000);
-  }
-
-  function pauseTimer() {
-    if (!isRunning) return;
-    clearInterval(timer);
-    isRunning = false;
-    updateStartPauseButton();
-    endTimestamp = Date.now() + getRemainingSeconds() * 1000;
-  }
-
-  function resetTimer() {
-    pauseTimer();
-    shouldSkipShortBreak = false;
-    setPhase('focus');
+    } else if (currentPhase === 'shortBreak') {
+      shortBreakCount++;
+      setPhase('focus');
+    } else if (currentPhase === 'longBreak') {
+      longBreakCount++;
+      document.getElementById('endSound').play().catch(console.warn);
+      showPopup();
+      return;
+    }
     updateSessionCounter();
-    closePopup();
-  }
 
-  function toggleStartPause() {
-    if (isRunning) {
-      pauseTimer();
+    if (shouldSkipShortBreak && currentPhase === 'shortBreak') {
+      shouldSkipShortBreak = false;
+      nextPhase();
     } else {
       startTimer();
     }
   }
 
+  function resetTimer() {
+    pauseTimer(); shouldSkipShortBreak = false;
+    setPhase('idle');
+    updateSessionCounter();
+    closePopup();
+  }
+
+  function toggleStartPause() {
+    if (isRunning) pauseTimer(); else startTimer();
+  }
+
   function showPopup() {
+    clearInterval(timer); isRunning = false;
+    updateStartPauseButton();
     document.getElementById('popup').style.display = 'flex';
   }
 
   function closePopup() {
     document.getElementById('popup').style.display = 'none';
     pauseTimer();
-    // setPhase('focus');
+    setPhase('idle');
   }
 
   function restartSession() {
-    resetTimer();
-    closePopup();
-    startTimer();
+    closePopup(); setPhase('focus'); startTimer();
+  }
+
+  function updateSessionCounter() {
+    document.getElementById('sessionCounter').textContent =
+      `Focus: ${focusCount} | Short Breaks: ${shortBreakCount} | Long Breaks: ${longBreakCount}`;
   }
 
   window.onload = () => {
     loadSettingsFromCookies();
     applySettings();
+    setPhase('idle');
     updateStartPauseButton();
   };
 
   document.getElementById('startBtn').addEventListener('click', toggleStartPause);
   document.getElementById('resetBtn').addEventListener('click', resetTimer);
-  document.addEventListener('keydown', function(event) {
-    if (event.code === 'Space') {
-      event.preventDefault();
-      toggleStartPause();
-    } else if (event.code === 'KeyR') {
-      event.preventDefault();
-      resetTimer();
-    }
-  });
 </script>
 
 </body>
