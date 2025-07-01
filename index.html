@@ -222,6 +222,9 @@
       <button class="button" onclick="closePopup()">No, thanks!</button>
     </div>
   </div>
+  <audio id="focusSound" src="/sounds/Focus.mp3"></audio>
+  <audio id="BreakSound" src="/sounds/Break.mp3"></audio>
+  <audio id="endSound" src="/sounds/End.mp3"></audio>
 
 <script>
   let timer,
@@ -241,6 +244,7 @@
 
   let startBtn = document.getElementById('startBtn');
   let shouldSkipShortBreak = false;
+  let lastPhase = null;
 
   function getRemainingSeconds() {
     return Math.max(0, Math.floor((endTimestamp - Date.now()) / 1000));
@@ -304,6 +308,16 @@
     }
   }
 
+  function playSoundForPhase(phase) {
+    const sounds = {
+      focus: document.getElementById('focusSound'),
+      shortBreak: document.getElementById('BreakSound'),
+      longBreak: document.getElementById('BreakSound') // reuse short break sound
+    };
+    const sound = sounds[phase];
+    if (sound) sound.play().catch(err => console.error('Sound error:', err));
+  }
+
   function setPhase(phase) {
     currentPhase = phase;
     document.getElementById('phaseLabel').textContent =
@@ -318,6 +332,10 @@
     endTimestamp = Date.now() + duration;
     updateDisplay();
     updateTimerColor();
+    if (lastPhase !== phase) {
+      playSoundForPhase(phase);
+      lastPhase = phase;
+    }
   }
 
   function updateTimerColor() {
@@ -348,6 +366,7 @@
       clearInterval(timer);
       isRunning = false;
       updateStartPauseButton();
+      document.getElementById('endSound').play().catch(err => console.error('Sound error:', err));
       showPopup();
       return;
     }
@@ -445,6 +464,15 @@
 
   document.getElementById('startBtn').addEventListener('click', toggleStartPause);
   document.getElementById('resetBtn').addEventListener('click', resetTimer);
+  document.addEventListener('keydown', function(event) {
+    if (event.code === 'Space') {
+      event.preventDefault();
+      toggleStartPause();
+    } else if (event.code === 'KeyR') {
+      event.preventDefault();
+      resetTimer();
+    }
+  });
 </script>
 
 </body>
